@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,16 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Save, Trash2, Music, Users } from "lucide-react";
-import { useGame } from "@/contexts/GameContext";
+import { Plus, Save, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useGameSession } from "@/hooks/useGameSession";
+import { useGameActions } from "@/hooks/useGameActions";
 
 const Editor = () => {
-  const { state, addRound, addQuestion, addTeam, removeTeam } = useGame();
   const { toast } = useToast();
+  const { session, teams, rounds, questions, loading } = useGameSession();
+  const actions = useGameActions(session?.id);
 
   const [newRoundTitle, setNewRoundTitle] = useState("");
-  const [selectedRound, setSelectedRound] = useState(state.rounds[0]?.id || "");
+  const [selectedRound, setSelectedRound] = useState("");
+  
+  useEffect(() => {
+    if (rounds.length > 0 && !selectedRound) {
+      setSelectedRound(rounds[0].id);
+    }
+  }, [rounds, selectedRound]);
   
   const [newQuestion, setNewQuestion] = useState({
     type: "buzzer" as "buzzer" | "qcm" | "text",
@@ -34,12 +42,8 @@ const Editor = () => {
 
   const handleAddRound = () => {
     if (newRoundTitle.trim()) {
-      addRound(newRoundTitle);
+      actions.addRound(newRoundTitle);
       setNewRoundTitle("");
-      toast({
-        title: "Manche ajoutée",
-        description: `"${newRoundTitle}" a été créée`,
-      });
     }
   };
 
@@ -53,12 +57,11 @@ const Editor = () => {
       return;
     }
 
-    addQuestion(selectedRound, {
-      roundId: selectedRound,
+    actions.addQuestion(selectedRound, {
       type: newQuestion.type,
       text: newQuestion.text,
-      choices: newQuestion.type === "qcm" ? newQuestion.choices : undefined,
-      correctAnswer: newQuestion.correctAnswer,
+      choices: newQuestion.type === "qcm" ? newQuestion.choices.filter(c => c.trim()) : undefined,
+      correct_answer: newQuestion.correctAnswer,
       points: newQuestion.points,
       duration: newQuestion.duration,
     });
@@ -71,25 +74,25 @@ const Editor = () => {
       points: 100,
       duration: 30,
     });
-
-    toast({
-      title: "Question ajoutée",
-      description: "La question a été ajoutée à la manche",
-    });
   };
 
   const handleAddTeam = () => {
     if (newTeamName.trim()) {
-      addTeam(newTeamName);
+      actions.addTeam(newTeamName);
       setNewTeamName("");
-      toast({
-        title: "Équipe ajoutée",
-        description: `"${newTeamName}" peut maintenant se connecter`,
-      });
     }
   };
 
-  const currentRound = state.rounds.find((r) => r.id === selectedRound);
+  const currentRound = rounds.find((r) => r.id === selectedRound);
+  const currentQuestions = questions.filter((q) => q.round_id === selectedRound);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-gold text-xl">Chargement...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,11 +104,11 @@ const Editor = () => {
               Éditeur de Projet
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {state.projectName}
+              {session?.project_name}
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={actions.saveProject}>
               <Save className="w-4 h-4 mr-2" />
               Sauvegarder
             </Button>
@@ -130,19 +133,22 @@ const Editor = () => {
                   Manches
                 </h3>
                 <div className="space-y-3 mb-4">
-                  {state.rounds.map((round) => (
-                    <Button
-                      key={round.id}
-                      variant={selectedRound === round.id ? "default" : "secondary"}
-                      className="w-full justify-start"
-                      onClick={() => setSelectedRound(round.id)}
-                    >
-                      {round.title}
-                      <span className="ml-auto text-xs">
-                        {round.questions.length} Q
-                      </span>
-                    </Button>
-                  ))}
+                  {rounds.map((round) => {
+                    const roundQuestions = questions.filter((q) => q.round_id === round.id);
+                    return (
+                      <Button
+                        key={round.id}
+                        variant={selectedRound === round.id ? "default" : "secondary"}
+                        className="w-full justify-start"
+                        onClick={() => setSelectedRound(round.id)}
+                      >
+                        {round.title}
+                        <span className="ml-auto text-xs">
+                          {roundQuestions.length} Q
+                        </span>
+                      </Button>
+                    );
+                  })}
                 </div>
                 <div className="space-y-2">
                   <Input
@@ -274,13 +280,13 @@ const Editor = () => {
                 </div>
 
                 {/* Questions List */}
-                {currentRound && currentRound.questions.length > 0 && (
+                {currentQuestions.length > 0 && (
                   <div className="mt-8">
                     <h4 className="text-lg font-semibold text-foreground mb-4">
-                      Questions ({currentRound.questions.length})
+                      Questions ({currentQuestions.length})
                     </h4>
                     <div className="space-y-2">
-                      {currentRound.questions.map((q, idx) => (
+                      {currentQuestions.map((q, idx) => (
                         <div
                           key={q.id}
                           className="flex items-center justify-between p-3 bg-muted rounded-lg"
@@ -294,9 +300,6 @@ const Editor = () => {
                               </p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
                         </div>
                       ))}
                     </div>
@@ -332,7 +335,7 @@ const Editor = () => {
               </div>
 
               <div className="space-y-2">
-                {state.teams.map((team) => (
+                {teams.map((team) => (
                   <div
                     key={team.id}
                     className="flex items-center justify-between p-4 bg-muted rounded-lg"
@@ -346,13 +349,16 @@ const Editor = () => {
                         {team.name}
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        {team.score} points
+                        {team.score} points • {team.jokers_remaining} jokers
                       </span>
+                      {team.connected && (
+                        <span className="text-xs text-green-500">● Connecté</span>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeTeam(team.id)}
+                      onClick={() => actions.removeTeam(team.id)}
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
@@ -373,19 +379,30 @@ const Editor = () => {
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Nom du Projet
                   </label>
-                  <Input defaultValue={state.projectName} />
+                  <Input 
+                    defaultValue={session?.project_name}
+                    onBlur={(e) => actions.updateSettings({ project_name: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Nombre Max d'Équipes
                   </label>
-                  <Input type="number" defaultValue={30} />
+                  <Input 
+                    type="number" 
+                    defaultValue={session?.max_teams}
+                    onBlur={(e) => actions.updateSettings({ max_teams: parseInt(e.target.value) })}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     Port WebSocket
                   </label>
-                  <Input defaultValue={3000} />
+                  <Input 
+                    type="number"
+                    defaultValue={session?.websocket_port}
+                    onBlur={(e) => actions.updateSettings({ websocket_port: parseInt(e.target.value) })}
+                  />
                 </div>
               </div>
             </Card>

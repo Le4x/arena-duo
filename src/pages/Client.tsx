@@ -3,37 +3,61 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Radio, Trophy, Zap } from "lucide-react";
-import { useGame } from "@/contexts/GameContext";
 import { useToast } from "@/hooks/use-toast";
+import { useGameSession } from "@/hooks/useGameSession";
+import { useGameActions } from "@/hooks/useGameActions";
+import { JokerButton } from "@/components/JokerButton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Client = () => {
-  const { state, pressBuzzer, submitAnswer } = useGame();
   const { toast } = useToast();
+  const { session, teams, questions } = useGameSession();
+  const actions = useGameActions(session?.id);
+  
+  const [joinMode, setJoinMode] = useState<"new" | "existing">("existing");
   const [teamName, setTeamName] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
   const [joined, setJoined] = useState(false);
-  const [teamId, setTeamId] = useState("");
+  const [myTeamId, setMyTeamId] = useState("");
   const [textAnswer, setTextAnswer] = useState("");
 
-  const currentQuestion = state.rounds
-    .flatMap((r) => r.questions)
-    .find((q) => q.id === state.currentQuestionId);
+  const currentQuestion = questions.find((q) => q.id === session?.current_question_id);
+  const myTeam = teams.find((t) => t.id === myTeamId);
 
-  const myTeam = state.teams.find((t) => t.id === teamId);
-
-  const handleJoin = () => {
-    if (teamName.trim()) {
-      const newTeamId = `t${Date.now()}`;
-      setTeamId(newTeamId);
+  const handleJoinExisting = () => {
+    if (selectedTeamId) {
+      setMyTeamId(selectedTeamId);
       setJoined(true);
+      const team = teams.find((t) => t.id === selectedTeamId);
       toast({
         title: "Connecté !",
-        description: `Bienvenue ${teamName}`,
+        description: `Bienvenue dans ${team?.name}`,
       });
     }
   };
 
+  const handleJoinNew = async () => {
+    if (teamName.trim()) {
+      await actions.addTeam(teamName);
+      // Find the newly created team
+      setTimeout(() => {
+        const newTeam = teams.find((t) => t.name === teamName);
+        if (newTeam) {
+          setMyTeamId(newTeam.id);
+          setJoined(true);
+        }
+      }, 500);
+    }
+  };
+
   const handleBuzzer = () => {
-    if (state.buzzerLocked) {
+    if (session?.buzzer_locked) {
       toast({
         title: "Trop tard !",
         description: "Un autre joueur a déjà buzzé",
@@ -41,7 +65,7 @@ const Client = () => {
       });
       return;
     }
-    pressBuzzer(teamId);
+    actions.pressBuzzer(myTeamId);
     toast({
       title: "Buzzer appuyé !",
       description: "Vous pouvez répondre",
@@ -49,12 +73,20 @@ const Client = () => {
   };
 
   const handleSubmitAnswer = (answer: string) => {
-    submitAnswer(teamId, answer);
-    toast({
-      title: "Réponse envoyée !",
-      description: "En attente de la validation...",
-    });
-    setTextAnswer("");
+    if (currentQuestion) {
+      actions.submitAnswer(myTeamId, currentQuestion.id, answer);
+      toast({
+        title: "Réponse envoyée !",
+        description: "En attente de la validation...",
+      });
+      setTextAnswer("");
+    }
+  };
+
+  const handleUseJoker = () => {
+    if (currentQuestion) {
+      actions.useJoker(myTeamId, currentQuestion.id, "aide");
+    }
   };
 
   if (!joined) {
@@ -65,26 +97,78 @@ const Client = () => {
             <h1 className="text-4xl font-bold text-gold mb-2">ARENA</h1>
             <p className="text-muted-foreground">Rejoindre la partie</p>
           </div>
+          
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Nom de votre équipe
+                Mode de connexion
               </label>
-              <Input
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder="Les Champions"
-                className="bg-muted border-arena-border"
-                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-              />
+              <Select value={joinMode} onValueChange={(v: "new" | "existing") => setJoinMode(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="existing">Rejoindre une équipe existante</SelectItem>
+                  <SelectItem value="new">Créer une nouvelle équipe</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Button className="w-full" onClick={handleJoin} disabled={!teamName.trim()}>
-              Rejoindre
-            </Button>
+
+            {joinMode === "existing" ? (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Choisir une équipe
+                  </label>
+                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez une équipe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name} ({team.score} points)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleJoinExisting}
+                  disabled={!selectedTeamId}
+                >
+                  Rejoindre
+                </Button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Nom de votre équipe
+                  </label>
+                  <Input
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                    placeholder="Les Champions"
+                    className="bg-muted border-arena-border"
+                    onKeyDown={(e) => e.key === "Enter" && handleJoinNew()}
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleJoinNew}
+                  disabled={!teamName.trim()}
+                >
+                  Créer et Rejoindre
+                </Button>
+              </>
+            )}
           </div>
+          
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
-              {state.teams.length} équipes connectées
+              {teams.length} équipes connectées
             </p>
           </div>
         </Card>
@@ -98,7 +182,7 @@ const Client = () => {
       <header className="border-b border-arena-border bg-arena-bg-secondary p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gold">{teamName}</h1>
+            <h1 className="text-2xl font-bold text-gold">{myTeam?.name}</h1>
             <p className="text-sm text-muted-foreground">
               {myTeam ? `${myTeam.score} points` : "En attente..."}
             </p>
@@ -133,7 +217,7 @@ const Client = () => {
                   {currentQuestion.text}
                 </h2>
                 <div className="text-4xl font-bold text-gold">
-                  {state.timeRemaining}s
+                  {session?.time_remaining}s
                 </div>
               </div>
 
@@ -143,16 +227,16 @@ const Client = () => {
                   <Button
                     className="w-full h-32 text-2xl font-bold"
                     onClick={handleBuzzer}
-                    disabled={state.buzzerLocked}
+                    disabled={session?.buzzer_locked}
                   >
                     <Zap className="w-8 h-8 mr-3" />
-                    {state.buzzerLocked
-                      ? state.buzzerWinner === teamId
+                    {session?.buzzer_locked
+                      ? session?.buzzer_winner_id === myTeamId
                         ? "Vous pouvez répondre !"
                         : "Buzzer verrouillé"
                       : "BUZZER"}
                   </Button>
-                  {state.buzzerWinner === teamId && (
+                  {session?.buzzer_winner_id === myTeamId && (
                     <Input
                       value={textAnswer}
                       onChange={(e) => setTextAnswer(e.target.value)}
@@ -204,6 +288,17 @@ const Client = () => {
                 </div>
               )}
             </Card>
+
+            {/* Joker System */}
+            {myTeam && (
+              <div className="flex justify-center">
+                <JokerButton
+                  jokersRemaining={myTeam.jokers_remaining}
+                  onUseJoker={handleUseJoker}
+                  disabled={!session?.timer_active}
+                />
+              </div>
+            )}
 
             {/* Points */}
             <div className="text-center text-muted-foreground">
