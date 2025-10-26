@@ -43,7 +43,7 @@ const Index = () => {
               <Button 
                 variant="default" 
                 className="w-full mt-4"
-                onClick={() => navigate("/regie")}
+                onClick={() => navigate("/editor")}
               >
                 Créer
               </Button>
@@ -78,7 +78,11 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">
                 Lancer une session multijoueur
               </p>
-              <Button variant="secondary" className="w-full mt-4">
+              <Button 
+                variant="secondary" 
+                className="w-full mt-4"
+                onClick={() => navigate("/regie")}
+              >
                 Démarrer
               </Button>
             </div>

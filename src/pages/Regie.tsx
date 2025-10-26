@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,11 +14,55 @@ import {
   Settings,
   List,
   Monitor,
+  Eye,
+  Edit,
 } from "lucide-react";
+import { useGame } from "@/contexts/GameContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Regie = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentRound, setCurrentRound] = useState(1);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const {
+    state,
+    setCurrentQuestion,
+    startTimer,
+    stopTimer,
+    nextQuestion,
+    startLiveSession,
+    stopLiveSession,
+    updateScore,
+  } = useGame();
+
+  const currentRound = state.rounds.find((r) => r.id === state.currentRoundId);
+  const currentQuestion = state.rounds
+    .flatMap((r) => r.questions)
+    .find((q) => q.id === state.currentQuestionId);
+
+  const sortedTeams = [...state.teams].sort((a, b) => b.score - a.score);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (state.timerActive && state.timeRemaining > 0) {
+      timer = setInterval(() => {
+        // Timer would be managed in context
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [state.timerActive, state.timeRemaining]);
+
+  const handleStartQuestion = (questionId: string) => {
+    setCurrentQuestion(questionId);
+    startTimer();
+    toast({
+      title: "Question envoyée",
+      description: "Les joueurs peuvent maintenant répondre",
+    });
+  };
+
+  const handleOpenScreen = () => {
+    window.open("/screen", "_blank");
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -29,13 +74,17 @@ const Regie = () => {
               ARENA <span className="text-sm text-muted-foreground ml-2">• Régie</span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              MusicArena #1 • Manche {currentRound}/5
+              {state.projectName} • Manche {currentRound?.order || 1}/{state.rounds.length}
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" onClick={handleOpenScreen}>
               <Monitor className="w-4 h-4 mr-2" />
               Écran Public
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => navigate("/editor")}>
+              <Edit className="w-4 h-4 mr-2" />
+              Éditeur
             </Button>
             <Button variant="secondary" size="sm">
               <Settings className="w-4 h-4 mr-2" />
@@ -49,31 +98,43 @@ const Regie = () => {
         {/* Sidebar */}
         <aside className="w-80 border-r border-arena-border bg-arena-bg-secondary p-6">
           <div className="space-y-6">
-            {/* Teams Summary */}
+            {/* Connection Info */}
             <Card className="p-4 bg-card border-arena-border">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
                   <Users className="w-4 h-4 text-gold" />
                   Équipes Connectées
                 </h3>
-                <span className="text-2xl font-bold text-gold">24</span>
+                <span className="text-2xl font-bold text-gold">{state.teams.length}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Connectez-vous sur : <span className="text-gold">192.168.1.100:3000</span>
+              <p className="text-xs text-muted-foreground mb-2">
+                URL Client :
               </p>
+              <code className="text-xs text-gold bg-muted p-2 rounded block">
+                {window.location.origin}/client
+              </code>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full mt-3"
+                onClick={() => window.open("/client", "_blank")}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Ouvrir Client
+              </Button>
             </Card>
 
             {/* Quick Actions */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Actions Rapides
+                Session Live
               </h3>
               <Button
-                variant={isPlaying ? "secondary" : "default"}
+                variant={state.isLive ? "secondary" : "default"}
                 className="w-full justify-start"
-                onClick={() => setIsPlaying(!isPlaying)}
+                onClick={() => (state.isLive ? stopLiveSession() : startLiveSession())}
               >
-                {isPlaying ? (
+                {state.isLive ? (
                   <>
                     <Pause className="w-4 h-4 mr-2" />
                     Mettre en Pause
@@ -81,21 +142,22 @@ const Regie = () => {
                 ) : (
                   <>
                     <Play className="w-4 h-4 mr-2" />
-                    Lancer la Manche
+                    Démarrer Session
                   </>
                 )}
               </Button>
-              <Button variant="secondary" className="w-full justify-start">
+              <Button
+                variant="secondary"
+                className="w-full justify-start"
+                onClick={nextQuestion}
+                disabled={!currentQuestion}
+              >
                 <SkipForward className="w-4 h-4 mr-2" />
                 Question Suivante
               </Button>
               <Button variant="secondary" className="w-full justify-start">
                 <Trophy className="w-4 h-4 mr-2" />
                 Afficher Classement
-              </Button>
-              <Button variant="secondary" className="w-full justify-start">
-                <Radio className="w-4 h-4 mr-2" />
-                Buzzer Mode
               </Button>
             </div>
 
@@ -104,16 +166,15 @@ const Regie = () => {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Manches
               </h3>
-              {[1, 2, 3, 4, 5].map((round) => (
+              {state.rounds.map((round) => (
                 <Button
-                  key={round}
-                  variant={currentRound === round ? "default" : "ghost"}
+                  key={round.id}
+                  variant={state.currentRoundId === round.id ? "default" : "ghost"}
                   className="w-full justify-start"
-                  onClick={() => setCurrentRound(round)}
                 >
                   <List className="w-4 h-4 mr-2" />
-                  Manche {round}
-                  {currentRound === round && (
+                  {round.title}
+                  {state.currentRoundId === round.id && (
                     <span className="ml-auto text-xs">En cours</span>
                   )}
                 </Button>
@@ -132,86 +193,161 @@ const Regie = () => {
             </TabsList>
 
             <TabsContent value="questions" className="space-y-4">
-              <Card className="p-6 bg-card border-arena-border">
-                <h3 className="text-xl font-semibold text-foreground mb-4">
-                  Question 1 - Blind Test Audio
-                </h3>
-                <div className="space-y-4">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">Fichier audio :</p>
-                    <p className="font-medium text-foreground">01_chanson_mystere.mp3</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+              {currentRound?.questions.map((question, idx) => (
+                <Card key={question.id} className="p-6 bg-card border-arena-border">
+                  <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Type</p>
-                      <p className="font-medium text-foreground">Buzzer</p>
+                      <h3 className="text-xl font-semibold text-foreground mb-2">
+                        Question {idx + 1} - {question.type.toUpperCase()}
+                      </h3>
+                      <p className="text-foreground">{question.text}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Points</p>
-                      <p className="font-medium text-gold">100</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Durée</p>
-                      <p className="font-medium text-foreground">30s</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Statut</p>
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gold/20 text-gold">
-                        Prêt
+                    {currentQuestion?.id === question.id && (
+                      <span className="px-3 py-1 bg-gold/20 text-gold rounded-full text-sm font-medium">
+                        En cours
                       </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Type</p>
+                      <p className="font-medium text-foreground uppercase text-sm">
+                        {question.type}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Points</p>
+                      <p className="font-medium text-gold text-sm">{question.points}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Durée</p>
+                      <p className="font-medium text-foreground text-sm">
+                        {question.duration}s
+                      </p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Réponses</p>
+                      <p className="font-medium text-foreground text-sm">
+                        {Object.keys(state.answers).length}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex gap-3 pt-4">
-                    <Button className="flex-1">
-                      <Play className="w-4 h-4 mr-2" />
-                      Envoyer Question
-                    </Button>
-                    <Button variant="secondary">
-                      <Volume2 className="w-4 h-4 mr-2" />
-                      Prévisualiser
-                    </Button>
-                  </div>
-                </div>
-              </Card>
 
-              {/* More questions would be listed here */}
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Ajoutez plus de questions dans l'éditeur de projet</p>
-              </div>
+                  {question.choices && (
+                    <div className="mb-4 p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-2">Choix :</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {question.choices.map((choice, i) => (
+                          <div
+                            key={i}
+                            className={`text-sm p-2 rounded ${
+                              choice === question.correctAnswer
+                                ? "bg-green-500/20 text-green-500 font-semibold"
+                                : "bg-background text-foreground"
+                            }`}
+                          >
+                            {String.fromCharCode(65 + i)}. {choice}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleStartQuestion(question.id)}
+                      disabled={currentQuestion?.id === question.id}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      {currentQuestion?.id === question.id
+                        ? "Question Active"
+                        : "Envoyer Question"}
+                    </Button>
+                    {question.audioFile && (
+                      <Button variant="secondary">
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Prévisualiser
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+
+              {!currentRound?.questions.length && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Radio className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">Aucune question dans cette manche</p>
+                  <Button
+                    variant="secondary"
+                    className="mt-4"
+                    onClick={() => navigate("/editor")}
+                  >
+                    Ajouter des Questions
+                  </Button>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="scores" className="space-y-4">
               <Card className="p-6 bg-card border-arena-border">
-                <h3 className="text-xl font-semibold text-foreground mb-6">
-                  Classement Actuel
-                </h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-semibold text-foreground flex items-center gap-3">
+                    <Trophy className="w-8 h-8 text-gold" />
+                    Classement Général
+                  </h3>
+                  <Button variant="secondary" size="sm">
+                    Rafraîchir
+                  </Button>
+                </div>
                 <div className="space-y-3">
-                  {[
-                    { rank: 1, name: "Les Rockeurs", score: 450 },
-                    { rank: 2, name: "Team Melody", score: 420 },
-                    { rank: 3, name: "Sound Masters", score: 380 },
-                  ].map((team) => (
+                  {sortedTeams.map((team, idx) => (
                     <div
-                      key={team.rank}
+                      key={team.id}
                       className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                            team.rank === 1
+                          className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl ${
+                            idx === 0
                               ? "bg-gold text-background"
+                              : idx === 1
+                              ? "bg-gray-400 text-background"
+                              : idx === 2
+                              ? "bg-orange-600 text-background"
                               : "bg-secondary text-foreground"
                           }`}
                         >
-                          {team.rank}
+                          {idx + 1}
                         </div>
-                        <span className="font-semibold text-foreground">
-                          {team.name}
-                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            <span className="font-semibold text-foreground text-lg">
+                              {team.name}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {team.connected ? "Connecté" : "Déconnecté"}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-2xl font-bold text-gold">
-                        {team.score}
-                      </span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-3xl font-bold text-gold">
+                          {team.score}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateScore(team.id, 50)}
+                        >
+                          +50
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -219,17 +355,16 @@ const Regie = () => {
             </TabsContent>
 
             <TabsContent value="audio" className="space-y-4">
-              <Card className="p-6 bg-card border-arena-border">
-                <h3 className="text-xl font-semibold text-foreground mb-6">
+              <Card className="p-8 bg-card border-arena-border">
+                <h3 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-3">
+                  <Volume2 className="w-6 h-6 text-gold" />
                   Lecteur Audio
                 </h3>
                 <div className="space-y-6">
                   <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Piste Actuelle
-                    </p>
-                    <p className="text-lg font-semibold text-foreground">
-                      01_chanson_mystere.mp3
+                    <p className="text-sm text-muted-foreground">Piste Actuelle</p>
+                    <p className="text-xl font-semibold text-foreground">
+                      {currentQuestion?.audioFile || "Aucune piste"}
                     </p>
                   </div>
 
@@ -237,27 +372,29 @@ const Regie = () => {
                     <div className="bg-gold h-full w-1/3 transition-all duration-300"></div>
                   </div>
 
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>0:15</span>
+                    <span>0:45</span>
+                  </div>
+
                   <div className="flex items-center justify-center gap-4">
                     <Button size="lg" variant="secondary">
                       <SkipForward className="w-5 h-5 rotate-180" />
                     </Button>
-                    <Button size="lg" className="w-16 h-16">
-                      {isPlaying ? (
-                        <Pause className="w-6 h-6" />
-                      ) : (
-                        <Play className="w-6 h-6" />
-                      )}
+                    <Button size="lg" className="w-20 h-20 rounded-full">
+                      <Play className="w-8 h-8" />
                     </Button>
                     <Button size="lg" variant="secondary">
                       <SkipForward className="w-5 h-5" />
                     </Button>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 mt-6">
                     <Volume2 className="w-5 h-5 text-muted-foreground" />
                     <div className="flex-1 bg-muted h-2 rounded-full overflow-hidden">
                       <div className="bg-gold h-full w-3/4"></div>
                     </div>
+                    <span className="text-sm text-muted-foreground w-12">75%</span>
                   </div>
                 </div>
               </Card>
