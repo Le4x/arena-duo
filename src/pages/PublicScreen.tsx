@@ -1,21 +1,29 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Trophy, Clock } from "lucide-react";
-import { useGame } from "@/contexts/GameContext";
+import { useGameSession } from "@/hooks/useGameSession";
 
 const PublicScreen = () => {
-  const { state } = useGame();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session") || undefined;
+  const { session, teams, questions, loading } = useGameSession(sessionId);
   const [showAnswer, setShowAnswer] = useState(false);
 
-  const currentQuestion = state.rounds
-    .flatMap((r) => r.questions)
-    .find((q) => q.id === state.currentQuestionId);
-
-  const sortedTeams = [...state.teams].sort((a, b) => b.score - a.score);
+  const currentQuestion = questions.find((q) => q.id === session?.current_question_id);
+  const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
 
   useEffect(() => {
     setShowAnswer(false);
-  }, [state.currentQuestionId]);
+  }, [session?.current_question_id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <h1 className="text-4xl font-bold text-gold">Chargement...</h1>
+      </div>
+    );
+  }
 
   if (!currentQuestion) {
     return (
@@ -36,7 +44,7 @@ const PublicScreen = () => {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-5xl font-bold text-gold mb-2">ARENA LIVE</h1>
-          <p className="text-xl text-muted-foreground">{state.projectName}</p>
+          <p className="text-xl text-muted-foreground">{session?.project_name}</p>
         </div>
 
         {/* Question Display */}
@@ -45,7 +53,7 @@ const PublicScreen = () => {
             {/* Timer */}
             <div className="flex items-center justify-center gap-4 text-gold">
               <Clock className="w-12 h-12" />
-              <div className="text-7xl font-bold">{state.timeRemaining}</div>
+              <div className="text-7xl font-bold">{session?.time_remaining || 0}</div>
             </div>
 
             {/* Question */}
@@ -65,7 +73,7 @@ const PublicScreen = () => {
                   <div
                     key={idx}
                     className={`p-6 rounded-lg text-2xl font-semibold flex items-center gap-4 transition-all ${
-                      showAnswer && choice === currentQuestion.correctAnswer
+                      showAnswer && choice === currentQuestion.correct_answer
                         ? "bg-green-500/20 border-2 border-green-500"
                         : "bg-secondary"
                     }`}
@@ -80,10 +88,10 @@ const PublicScreen = () => {
             )}
 
             {/* Buzzer Winner */}
-            {currentQuestion.type === "buzzer" && state.buzzerWinner && (
+            {currentQuestion.type === "buzzer" && session?.buzzer_winner_id && (
               <div className="text-center p-6 bg-gold/20 rounded-lg border-2 border-gold">
                 <p className="text-3xl font-bold text-gold">
-                  {state.teams.find((t) => t.id === state.buzzerWinner)?.name} a buzzé !
+                  {teams.find((t) => t.id === session.buzzer_winner_id)?.name} a buzzé !
                 </p>
               </div>
             )}
@@ -93,7 +101,7 @@ const PublicScreen = () => {
               <div className="text-center p-8 bg-green-500/20 rounded-lg border-2 border-green-500 animate-slide-in">
                 <p className="text-2xl text-muted-foreground mb-2">Réponse correcte :</p>
                 <p className="text-5xl font-bold text-green-500">
-                  {currentQuestion.correctAnswer}
+                  {currentQuestion.correct_answer}
                 </p>
               </div>
             )}
@@ -144,12 +152,12 @@ const PublicScreen = () => {
             <div className="space-y-4">
               <div className="flex justify-between text-lg">
                 <span className="text-muted-foreground">Équipes connectées</span>
-                <span className="font-bold text-gold">{state.teams.length}</span>
+                <span className="font-bold text-gold">{teams.length}</span>
               </div>
               <div className="flex justify-between text-lg">
-                <span className="text-muted-foreground">Questions répondues</span>
+                <span className="text-muted-foreground">Temps restant</span>
                 <span className="font-bold text-gold">
-                  {Object.keys(state.answers).length}
+                  {session?.time_remaining || 0}s
                 </span>
               </div>
               <div className="flex justify-between text-lg">

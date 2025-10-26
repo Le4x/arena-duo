@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,53 +16,71 @@ import {
   Monitor,
   Eye,
   Edit,
+  QrCode,
 } from "lucide-react";
-import { useGame } from "@/contexts/GameContext";
 import { useToast } from "@/hooks/use-toast";
+import { useGameSession } from "@/hooks/useGameSession";
+import { useGameActions } from "@/hooks/useGameActions";
+import { QRCodeSVG } from "qrcode.react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Regie = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [answersData, setAnswersData] = useState<Record<string, any>>({});
+  
+  const { session, teams, rounds, questions, loading } = useGameSession();
   const {
-    state,
     setCurrentQuestion,
     startTimer,
     stopTimer,
-    nextQuestion,
+    updateScore,
     startLiveSession,
     stopLiveSession,
-    updateScore,
-  } = useGame();
+  } = useGameActions(session?.id);
 
-  const currentRound = state.rounds.find((r) => r.id === state.currentRoundId);
-  const currentQuestion = state.rounds
-    .flatMap((r) => r.questions)
-    .find((q) => q.id === state.currentQuestionId);
+  const currentRound = rounds.find((r) => r.id === session?.current_round_id);
+  const currentQuestion = questions.find((q) => q.id === session?.current_question_id);
+  const currentRoundQuestions = questions.filter((q) => q.round_id === currentRound?.id);
 
-  const sortedTeams = [...state.teams].sort((a, b) => b.score - a.score);
+  const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
+  
+  const clientUrl = `${window.location.origin}/client?session=${session?.id || ""}`;
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (state.timerActive && state.timeRemaining > 0) {
-      timer = setInterval(() => {
-        // Timer would be managed in context
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [state.timerActive, state.timeRemaining]);
-
-  const handleStartQuestion = (questionId: string) => {
-    setCurrentQuestion(questionId);
-    startTimer();
+  const handleStartQuestion = async (questionId: string) => {
+    if (!currentRound) return;
+    await setCurrentQuestion(questionId, currentRound.id);
+    await startTimer();
     toast({
       title: "Question envoyée",
       description: "Les joueurs peuvent maintenant répondre",
     });
   };
 
-  const handleOpenScreen = () => {
-    window.open("/screen", "_blank");
+  const handleToggleLive = async () => {
+    if (session?.is_live) {
+      await stopLiveSession();
+      toast({ title: "Session mise en pause" });
+    } else {
+      await startLiveSession();
+      toast({ title: "Session démarrée", description: "Les joueurs peuvent rejoindre" });
+    }
   };
+
+  const handleOpenScreen = () => {
+    window.open(`/screen?session=${session?.id || ""}`, "_blank");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gold mb-4">Chargement...</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -74,7 +92,7 @@ const Regie = () => {
               ARENA <span className="text-sm text-muted-foreground ml-2">• Régie</span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {state.projectName} • Manche {currentRound?.order || 1}/{state.rounds.length}
+              {session?.project_name} • Manche {currentRound?.order_number || 1}/{rounds.length}
             </p>
           </div>
           <div className="flex gap-3">
@@ -105,23 +123,28 @@ const Regie = () => {
                   <Users className="w-4 h-4 text-gold" />
                   Équipes Connectées
                 </h3>
-                <span className="text-2xl font-bold text-gold">{state.teams.length}</span>
+                <span className="text-2xl font-bold text-gold">{teams.length}</span>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">
-                URL Client :
-              </p>
-              <code className="text-xs text-gold bg-muted p-2 rounded block">
-                {window.location.origin}/client
-              </code>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full mt-3"
-                onClick={() => window.open("/client", "_blank")}
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Ouvrir Client
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowQRCode(true)}
+                >
+                  <QrCode className="w-4 h-4 mr-2" />
+                  Afficher QR Code
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => window.open(clientUrl, "_blank")}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ouvrir Client
+                </Button>
+              </div>
             </Card>
 
             {/* Quick Actions */}
@@ -130,11 +153,11 @@ const Regie = () => {
                 Session Live
               </h3>
               <Button
-                variant={state.isLive ? "secondary" : "default"}
+                variant={session?.is_live ? "secondary" : "default"}
                 className="w-full justify-start"
-                onClick={() => (state.isLive ? stopLiveSession() : startLiveSession())}
+                onClick={handleToggleLive}
               >
-                {state.isLive ? (
+                {session?.is_live ? (
                   <>
                     <Pause className="w-4 h-4 mr-2" />
                     Mettre en Pause
@@ -149,11 +172,11 @@ const Regie = () => {
               <Button
                 variant="secondary"
                 className="w-full justify-start"
-                onClick={nextQuestion}
-                disabled={!currentQuestion}
+                onClick={stopTimer}
+                disabled={!currentQuestion || !session?.timer_active}
               >
-                <SkipForward className="w-4 h-4 mr-2" />
-                Question Suivante
+                <Pause className="w-4 h-4 mr-2" />
+                Arrêter Question
               </Button>
               <Button variant="secondary" className="w-full justify-start">
                 <Trophy className="w-4 h-4 mr-2" />
@@ -164,17 +187,17 @@ const Regie = () => {
             {/* Rounds */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Manches
+                Manches ({rounds.length})
               </h3>
-              {state.rounds.map((round) => (
+              {rounds.map((round) => (
                 <Button
                   key={round.id}
-                  variant={state.currentRoundId === round.id ? "default" : "ghost"}
+                  variant={session?.current_round_id === round.id ? "default" : "ghost"}
                   className="w-full justify-start"
                 >
                   <List className="w-4 h-4 mr-2" />
                   {round.title}
-                  {state.currentRoundId === round.id && (
+                  {session?.current_round_id === round.id && (
                     <span className="ml-auto text-xs">En cours</span>
                   )}
                 </Button>
@@ -193,7 +216,7 @@ const Regie = () => {
             </TabsList>
 
             <TabsContent value="questions" className="space-y-4">
-              {currentRound?.questions.map((question, idx) => (
+              {currentRoundQuestions.map((question, idx) => (
                 <Card key={question.id} className="p-6 bg-card border-arena-border">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -229,7 +252,7 @@ const Regie = () => {
                     <div className="p-3 bg-muted rounded-lg">
                       <p className="text-xs text-muted-foreground mb-1">Réponses</p>
                       <p className="font-medium text-foreground text-sm">
-                        {Object.keys(state.answers).length}
+                        {answersData[question.id]?.length || 0}
                       </p>
                     </div>
                   </div>
@@ -242,7 +265,7 @@ const Regie = () => {
                           <div
                             key={i}
                             className={`text-sm p-2 rounded ${
-                              choice === question.correctAnswer
+                              choice === question.correct_answer
                                 ? "bg-green-500/20 text-green-500 font-semibold"
                                 : "bg-background text-foreground"
                             }`}
@@ -265,7 +288,7 @@ const Regie = () => {
                         ? "Question Active"
                         : "Envoyer Question"}
                     </Button>
-                    {question.audioFile && (
+                    {question.audio_file && (
                       <Button variant="secondary">
                         <Volume2 className="w-4 h-4 mr-2" />
                         Prévisualiser
@@ -275,7 +298,7 @@ const Regie = () => {
                 </Card>
               ))}
 
-              {!currentRound?.questions.length && (
+              {!currentRoundQuestions.length && (
                 <div className="text-center py-16 text-muted-foreground">
                   <Radio className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <p className="text-lg">Aucune question dans cette manche</p>
@@ -364,7 +387,7 @@ const Regie = () => {
                   <div className="text-center space-y-2">
                     <p className="text-sm text-muted-foreground">Piste Actuelle</p>
                     <p className="text-xl font-semibold text-foreground">
-                      {currentQuestion?.audioFile || "Aucune piste"}
+                      {currentQuestion?.audio_file || "Aucune piste"}
                     </p>
                   </div>
 
@@ -402,6 +425,28 @@ const Regie = () => {
           </Tabs>
         </main>
       </div>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-bold text-gold">
+              Scanner pour rejoindre
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6 py-6">
+            <div className="bg-white p-6 rounded-lg">
+              <QRCodeSVG value={clientUrl} size={256} level="H" />
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">Ou visitez :</p>
+              <code className="text-xs text-gold bg-muted px-3 py-2 rounded block">
+                {clientUrl}
+              </code>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

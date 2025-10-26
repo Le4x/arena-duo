@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,10 @@ import {
 
 const Client = () => {
   const { toast } = useToast();
-  const { session, teams, questions } = useGameSession();
-  const actions = useGameActions(session?.id);
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session") || undefined;
+  const { session, teams, questions } = useGameSession(sessionId);
+  const actions = useGameActions(sessionId);
   
   const [joinMode, setJoinMode] = useState<"new" | "existing">("existing");
   const [teamName, setTeamName] = useState("");
