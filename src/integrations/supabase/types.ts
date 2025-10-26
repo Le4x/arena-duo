@@ -14,7 +14,255 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      answers: {
+        Row: {
+          answer: string
+          id: string
+          is_correct: boolean | null
+          question_id: string | null
+          team_id: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          answer: string
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string | null
+          team_id?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          answer?: string
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string | null
+          team_id?: string | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_sessions: {
+        Row: {
+          buzzer_locked: boolean | null
+          buzzer_winner_id: string | null
+          created_at: string | null
+          current_question_id: string | null
+          current_round_id: string | null
+          id: string
+          is_live: boolean | null
+          max_teams: number | null
+          project_name: string
+          time_remaining: number | null
+          timer_active: boolean | null
+          updated_at: string | null
+          websocket_port: number | null
+        }
+        Insert: {
+          buzzer_locked?: boolean | null
+          buzzer_winner_id?: string | null
+          created_at?: string | null
+          current_question_id?: string | null
+          current_round_id?: string | null
+          id?: string
+          is_live?: boolean | null
+          max_teams?: number | null
+          project_name?: string
+          time_remaining?: number | null
+          timer_active?: boolean | null
+          updated_at?: string | null
+          websocket_port?: number | null
+        }
+        Update: {
+          buzzer_locked?: boolean | null
+          buzzer_winner_id?: string | null
+          created_at?: string | null
+          current_question_id?: string | null
+          current_round_id?: string | null
+          id?: string
+          is_live?: boolean | null
+          max_teams?: number | null
+          project_name?: string
+          time_remaining?: number | null
+          timer_active?: boolean | null
+          updated_at?: string | null
+          websocket_port?: number | null
+        }
+        Relationships: []
+      }
+      joker_usage: {
+        Row: {
+          id: string
+          joker_type: string
+          question_id: string | null
+          team_id: string | null
+          used_at: string | null
+        }
+        Insert: {
+          id?: string
+          joker_type: string
+          question_id?: string | null
+          team_id?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          id?: string
+          joker_type?: string
+          question_id?: string | null
+          team_id?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "joker_usage_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "joker_usage_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          audio_file: string | null
+          choices: Json | null
+          correct_answer: string
+          created_at: string | null
+          duration: number | null
+          id: string
+          points: number | null
+          round_id: string | null
+          text: string
+          type: string
+        }
+        Insert: {
+          audio_file?: string | null
+          choices?: Json | null
+          correct_answer: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          points?: number | null
+          round_id?: string | null
+          text: string
+          type: string
+        }
+        Update: {
+          audio_file?: string | null
+          choices?: Json | null
+          correct_answer?: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          points?: number | null
+          round_id?: string | null
+          text?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rounds: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_number: number
+          session_id: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_number: number
+          session_id?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_number?: number
+          session_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rounds_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          color: string
+          connected: boolean | null
+          created_at: string | null
+          id: string
+          jokers_remaining: number | null
+          name: string
+          score: number | null
+          session_id: string | null
+        }
+        Insert: {
+          color: string
+          connected?: boolean | null
+          created_at?: string | null
+          id?: string
+          jokers_remaining?: number | null
+          name: string
+          score?: number | null
+          session_id?: string | null
+        }
+        Update: {
+          color?: string
+          connected?: boolean | null
+          created_at?: string | null
+          id?: string
+          jokers_remaining?: number | null
+          name?: string
+          score?: number | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
