@@ -1,11 +1,24 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { teamNameSchema, roundTitleSchema, questionSchema, answerSchema, settingsSchema } from "@/lib/validation";
 
 export const useGameActions = (sessionId: string | undefined) => {
   const { toast } = useToast();
 
-  const addTeam = async (name: string) => {
+  const addTeam = async (name: string, userId?: string) => {
     if (!sessionId) return;
+    
+    // Validate team name
+    try {
+      teamNameSchema.parse(name);
+    } catch (error: any) {
+      toast({
+        title: "Erreur de validation",
+        description: error.errors?.[0]?.message || "Nom d'équipe invalide",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const colors = ["#FFD700", "#FF6B6B", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA"];
     
@@ -20,6 +33,7 @@ export const useGameActions = (sessionId: string | undefined) => {
       name,
       color: colors[(count || 0) % colors.length],
       connected: true,
+      user_id: userId,
     });
 
     if (error) {
@@ -66,6 +80,18 @@ export const useGameActions = (sessionId: string | undefined) => {
   const addRound = async (title: string) => {
     if (!sessionId) return;
 
+    // Validate round title
+    try {
+      roundTitleSchema.parse(title);
+    } catch (error: any) {
+      toast({
+        title: "Erreur de validation",
+        description: error.errors?.[0]?.message || "Titre de manche invalide",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { count } = await supabase
       .from("rounds")
       .select("*", { count: "exact", head: true })
@@ -102,6 +128,18 @@ export const useGameActions = (sessionId: string | undefined) => {
       duration: number;
     }
   ) => {
+    // Validate question
+    try {
+      questionSchema.parse(question);
+    } catch (error: any) {
+      toast({
+        title: "Erreur de validation",
+        description: error.errors?.[0]?.message || "Question invalide",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase.from("questions").insert({
       round_id: roundId,
       type: question.type,
@@ -185,6 +223,18 @@ export const useGameActions = (sessionId: string | undefined) => {
   };
 
   const submitAnswer = async (teamId: string, questionId: string, answer: string) => {
+    // Validate answer
+    try {
+      answerSchema.parse(answer);
+    } catch (error: any) {
+      toast({
+        title: "Erreur de validation",
+        description: error.errors?.[0]?.message || "Réponse invalide",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await supabase.from("answers").insert({
       team_id: teamId,
       question_id: questionId,
@@ -255,6 +305,18 @@ export const useGameActions = (sessionId: string | undefined) => {
     websocket_port?: number;
   }) => {
     if (!sessionId) return;
+    
+    // Validate settings
+    try {
+      settingsSchema.parse(settings);
+    } catch (error: any) {
+      toast({
+        title: "Erreur de validation",
+        description: error.errors?.[0]?.message || "Paramètres invalides",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const { error } = await supabase
       .from("game_sessions")

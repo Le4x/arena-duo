@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
 
 const Client = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session") || undefined;
   const { session, teams, questions } = useGameSession(sessionId);
@@ -46,8 +48,8 @@ const Client = () => {
   };
 
   const handleJoinNew = async () => {
-    if (teamName.trim()) {
-      await actions.addTeam(teamName);
+    if (teamName.trim() && user) {
+      await actions.addTeam(teamName, user.id);
       // Find the newly created team
       setTimeout(() => {
         const newTeam = teams.find((t) => t.name === teamName);

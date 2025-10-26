@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, FolderOpen, Play } from "lucide-react";
+import { Plus, FolderOpen, Play, LogOut, LogIn } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [recentProjects] = useState([
     { id: 1, name: "Blind Test Soirée #1", date: "2025-10-20", teams: 15 },
     { id: 2, name: "MusicArena Corporate", date: "2025-10-18", teams: 22 },
@@ -15,13 +17,28 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-arena-border bg-arena-bg-secondary">
-        <div className="container mx-auto px-8 py-6">
-          <h1 className="text-4xl font-bold text-gold animate-glow-pulse">
-            ARENA
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Système professionnel de Blind Test interactif
-          </p>
+        <div className="container mx-auto px-8 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-gold animate-glow-pulse">
+              ARENA
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Système professionnel de Blind Test interactif
+            </p>
+          </div>
+          <div>
+            {user ? (
+              <Button variant="outline" onClick={signOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Déconnexion
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => navigate("/auth")}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Connexion
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
