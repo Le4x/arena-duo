@@ -24,6 +24,7 @@ export interface Team {
   connected: boolean;
   color: string;
   jokers_remaining: number;
+  user_id: string | null;
 }
 
 export interface Round {

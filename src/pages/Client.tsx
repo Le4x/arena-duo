@@ -9,13 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useGameSession } from "@/hooks/useGameSession";
 import { useGameActions } from "@/hooks/useGameActions";
 import { JokerButton } from "@/components/JokerButton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const Client = () => {
   const { toast } = useToast();
@@ -25,43 +18,27 @@ const Client = () => {
   const { session, teams, questions } = useGameSession(sessionId);
   const actions = useGameActions(sessionId);
   
-  const [joinMode, setJoinMode] = useState<"new" | "existing">("existing");
   const [teamName, setTeamName] = useState("");
-  const [selectedTeamId, setSelectedTeamId] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [myTeamId, setMyTeamId] = useState("");
   const [textAnswer, setTextAnswer] = useState("");
 
   const currentQuestion = questions.find((q) => q.id === session?.current_question_id);
-  const myTeam = teams.find((t) => t.id === myTeamId);
+  
+  // Automatically determine user's team based on user_id
+  const myTeam = teams.find((t) => t.user_id === user?.id);
 
-  const handleJoinExisting = () => {
-    if (selectedTeamId) {
-      setMyTeamId(selectedTeamId);
-      setJoined(true);
-      const team = teams.find((t) => t.id === selectedTeamId);
+  const handleCreateTeam = async () => {
+    if (teamName.trim() && user) {
+      await actions.addTeam(teamName, user.id);
+      setTeamName("");
       toast({
-        title: "Connecté !",
-        description: `Bienvenue dans ${team?.name}`,
+        title: "Équipe créée !",
+        description: "Bienvenue dans le jeu",
       });
     }
   };
 
-  const handleJoinNew = async () => {
-    if (teamName.trim() && user) {
-      await actions.addTeam(teamName, user.id);
-      // Find the newly created team
-      setTimeout(() => {
-        const newTeam = teams.find((t) => t.name === teamName);
-        if (newTeam) {
-          setMyTeamId(newTeam.id);
-          setJoined(true);
-        }
-      }, 500);
-    }
-  };
-
   const handleBuzzer = () => {
+    if (!myTeam) return;
     if (session?.buzzer_locked) {
       toast({
         title: "Trop tard !",
@@ -70,7 +47,7 @@ const Client = () => {
       });
       return;
     }
-    actions.pressBuzzer(myTeamId);
+    actions.pressBuzzer(myTeam.id);
     toast({
       title: "Buzzer appuyé !",
       description: "Vous pouvez répondre",
@@ -78,102 +55,55 @@ const Client = () => {
   };
 
   const handleSubmitAnswer = (answer: string) => {
-    if (currentQuestion) {
-      actions.submitAnswer(myTeamId, currentQuestion.id, answer);
-      toast({
-        title: "Réponse envoyée !",
-        description: "En attente de la validation...",
-      });
-      setTextAnswer("");
-    }
+    if (!myTeam || !currentQuestion) return;
+    actions.submitAnswer(myTeam.id, currentQuestion.id, answer);
+    toast({
+      title: "Réponse envoyée !",
+      description: "En attente de la validation...",
+    });
+    setTextAnswer("");
   };
 
   const handleUseJoker = () => {
-    if (currentQuestion) {
-      actions.useJoker(myTeamId, currentQuestion.id, "aide");
-    }
+    if (!myTeam || !currentQuestion) return;
+    actions.useJoker(myTeam.id, currentQuestion.id, "aide");
   };
 
-  if (!joined) {
+  // If user doesn't have a team yet, show team creation
+  if (!myTeam) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 bg-card border-arena-border">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gold mb-2">ARENA</h1>
-            <p className="text-muted-foreground">Rejoindre la partie</p>
+            <p className="text-muted-foreground">Créez votre équipe pour rejoindre la partie</p>
           </div>
           
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                Mode de connexion
+                Nom de votre équipe
               </label>
-              <Select value={joinMode} onValueChange={(v: "new" | "existing") => setJoinMode(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="existing">Rejoindre une équipe existante</SelectItem>
-                  <SelectItem value="new">Créer une nouvelle équipe</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Les Champions"
+                className="bg-muted border-arena-border"
+                onKeyDown={(e) => e.key === "Enter" && handleCreateTeam()}
+              />
             </div>
-
-            {joinMode === "existing" ? (
-              <>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">
-                    Choisir une équipe
-                  </label>
-                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une équipe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name} ({team.score} points)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleJoinExisting}
-                  disabled={!selectedTeamId}
-                >
-                  Rejoindre
-                </Button>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">
-                    Nom de votre équipe
-                  </label>
-                  <Input
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    placeholder="Les Champions"
-                    className="bg-muted border-arena-border"
-                    onKeyDown={(e) => e.key === "Enter" && handleJoinNew()}
-                  />
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleJoinNew}
-                  disabled={!teamName.trim()}
-                >
-                  Créer et Rejoindre
-                </Button>
-              </>
-            )}
+            <Button
+              className="w-full"
+              onClick={handleCreateTeam}
+              disabled={!teamName.trim()}
+            >
+              Créer mon équipe
+            </Button>
           </div>
           
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
-              {teams.length} équipes connectées
+              Chaque joueur doit créer sa propre équipe
             </p>
           </div>
         </Card>
@@ -236,12 +166,12 @@ const Client = () => {
                   >
                     <Zap className="w-8 h-8 mr-3" />
                     {session?.buzzer_locked
-                      ? session?.buzzer_winner_id === myTeamId
+                      ? session?.buzzer_winner_id === myTeam?.id
                         ? "Vous pouvez répondre !"
                         : "Buzzer verrouillé"
                       : "BUZZER"}
                   </Button>
-                  {session?.buzzer_winner_id === myTeamId && (
+                  {session?.buzzer_winner_id === myTeam?.id && (
                     <Input
                       value={textAnswer}
                       onChange={(e) => setTextAnswer(e.target.value)}
