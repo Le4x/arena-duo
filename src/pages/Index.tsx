@@ -1,152 +1,165 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Plus, FolderOpen, Play, LogOut, LogIn } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Monitor, Users, Settings, Play } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  const [recentProjects] = useState([
-    { id: 1, name: "Blind Test Soirée #1", date: "2025-10-20", teams: 15 },
-    { id: 2, name: "MusicArena Corporate", date: "2025-10-18", teams: 22 },
-  ]);
+  const clientUrl = `${window.location.origin}/client`;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-arena-border bg-arena-bg-secondary">
-        <div className="container mx-auto px-8 py-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gold animate-glow-pulse">
-              ARENA
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Système professionnel de Blind Test interactif
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-glow-pulse">
+            🎮 ARENA
+          </h1>
+          <p className="text-xl text-muted-foreground">
+            Système de Blind Test Interactif Professionnel
+          </p>
+        </div>
+
+        {/* QR Code Section */}
+        <Card className="border-2 border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-center">QR Code pour les Équipes</CardTitle>
+            <CardDescription className="text-center">
+              Les joueurs scannent ce code pour rejoindre la session
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <div className="bg-white p-4 rounded-lg">
+              <QRCodeSVG value={clientUrl} size={200} />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              {clientUrl}
             </p>
-          </div>
-          <div>
-            {user ? (
-              <Button variant="outline" onClick={signOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Déconnexion
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={() => navigate("/auth")}>
-                <LogIn className="w-4 h-4 mr-2" />
-                Connexion
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-          {/* Action Cards */}
-          <Card className="p-8 bg-card border-arena-border hover:border-gold transition-all duration-300 cursor-pointer group">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <Plus className="w-10 h-10 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground">
-                Nouveau Projet
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Créer un nouveau spectacle Arena
-              </p>
-              <Button 
-                variant="default" 
-                className="w-full mt-4"
-                onClick={() => navigate("/editor")}
-              >
-                Créer
+        {/* Navigation Cards */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Régie */}
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/regie")}>
+            <CardHeader>
+              <Settings className="w-12 h-12 mb-4 text-primary" />
+              <CardTitle>Régie</CardTitle>
+              <CardDescription>
+                Contrôle du jeu en direct
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="default">
+                Ouvrir la Régie
               </Button>
-            </div>
+            </CardContent>
           </Card>
 
-          <Card className="p-8 bg-card border-arena-border hover:border-gold transition-all duration-300 cursor-pointer group">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center group-hover:bg-secondary transition-colors">
-                <FolderOpen className="w-10 h-10 text-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground">
-                Ouvrir Projet
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Charger un fichier .ARE existant
-              </p>
-              <Button variant="secondary" className="w-full mt-4">
-                Parcourir
+          {/* Écran Public */}
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/screen")}>
+            <CardHeader>
+              <Monitor className="w-12 h-12 mb-4 text-accent" />
+              <CardTitle>Écran Public</CardTitle>
+              <CardDescription>
+                Affichage pour le projecteur
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="outline">
+                Afficher l'Écran
               </Button>
-            </div>
+            </CardContent>
           </Card>
 
-          <Card className="p-8 bg-card border-arena-border hover:border-gold transition-all duration-300 cursor-pointer group">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                <Play className="w-10 h-10 text-accent" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground">
-                Session Live
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Lancer une session multijoueur
-              </p>
-              <Button 
-                variant="secondary" 
-                className="w-full mt-4"
-                onClick={() => navigate("/regie")}
-              >
-                Démarrer
+          {/* Interface Client */}
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/client")}>
+            <CardHeader>
+              <Users className="w-12 h-12 mb-4 text-secondary" />
+              <CardTitle>Client Mobile</CardTitle>
+              <CardDescription>
+                Interface pour les joueurs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="secondary">
+                Rejoindre
               </Button>
-            </div>
+            </CardContent>
+          </Card>
+
+          {/* Éditeur */}
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/editor")}>
+            <CardHeader>
+              <Play className="w-12 h-12 mb-4 text-primary" />
+              <CardTitle>Éditeur</CardTitle>
+              <CardDescription>
+                Créer et modifier le contenu
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" variant="default">
+                Éditer
+              </Button>
+            </CardContent>
           </Card>
         </div>
 
-        {/* Recent Projects */}
-        <div className="mt-16 max-w-7xl mx-auto">
-          <h2 className="text-2xl font-semibold text-foreground mb-6">
-            Projets Récents
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recentProjects.map((project) => (
-              <Card
-                key={project.id}
-                className="p-6 bg-card border-arena-border hover:border-gold transition-all duration-300 cursor-pointer group animate-slide-in"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-foreground group-hover:text-gold transition-colors">
-                      {project.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {project.date} • {project.teams} équipes
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => navigate("/regie")}
-                  >
-                    Ouvrir
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </main>
+        {/* Instructions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Instructions de Démarrage</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                Préparez votre contenu
+              </h3>
+              <p className="text-muted-foreground ml-8">
+                Utilisez l'<strong>Éditeur</strong> pour créer vos manches, questions et pré-inscrire les équipes.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                Configurez l'affichage
+              </h3>
+              <p className="text-muted-foreground ml-8">
+                Ouvrez l'<strong>Écran Public</strong> sur le projecteur pour afficher les questions et le classement.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                Les équipes rejoignent
+              </h3>
+              <p className="text-muted-foreground ml-8">
+                Les joueurs scannent le <strong>QR Code</strong> ci-dessus pour accéder à l'interface Client et sélectionner leur équipe.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-semibold flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">4</span>
+                Lancez la partie
+              </h3>
+              <p className="text-muted-foreground ml-8">
+                Depuis la <strong>Régie</strong>, démarrez la session et contrôlez le déroulement du jeu en temps réel.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Footer */}
-      <footer className="border-t border-arena-border bg-arena-bg-secondary py-6">
-        <div className="container mx-auto px-8 text-center text-sm text-muted-foreground">
-          ARENA Live 1.0 • Système de Blind Test Professionnel • © 2025 EvoluDream
+        {/* Footer */}
+        <div className="text-center text-sm text-muted-foreground">
+          <p>🎵 MusicArena • Système Local • Sans Authentification</p>
+          <p className="mt-2">Prêt pour le 21 février 2026 🚀</p>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };

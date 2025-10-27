@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Radio, Trophy, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGameSession } from "@/hooks/useGameSession";
@@ -12,27 +12,42 @@ import { JokerButton } from "@/components/JokerButton";
 
 const Client = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session") || undefined;
   const { session, teams, questions } = useGameSession(sessionId);
   const actions = useGameActions(sessionId);
   
-  const [teamName, setTeamName] = useState("");
+  // Team selection from localStorage
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(
+    localStorage.getItem("arena_selected_team_id")
+  );
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
   const [textAnswer, setTextAnswer] = useState("");
 
   const currentQuestion = questions.find((q) => q.id === session?.current_question_id);
   
-  // Automatically determine user's team based on user_id
-  const myTeam = teams.find((t) => t.user_id === user?.id);
+  // Find selected team
+  const myTeam = teams.find((t) => t.id === selectedTeamId);
 
-  const handleCreateTeam = async () => {
-    if (teamName.trim() && user) {
-      await actions.addTeam(teamName, user.id);
-      setTeamName("");
+  const handleSelectTeam = (teamId: string) => {
+    setSelectedTeamId(teamId);
+    localStorage.setItem("arena_selected_team_id", teamId);
+    const team = teams.find(t => t.id === teamId);
+    toast({
+      title: "Équipe sélectionnée",
+      description: `Vous jouez avec ${team?.name}`,
+    });
+  };
+
+  const handleCreateNewTeam = async () => {
+    if (newTeamName.trim()) {
+      await actions.addTeam(newTeamName, null);
+      setNewTeamName("");
+      setShowCreateTeam(false);
       toast({
         title: "Équipe créée !",
-        description: "Bienvenue dans le jeu",
+        description: "Votre équipe a été créée avec succès",
       });
     }
   };
@@ -69,41 +84,82 @@ const Client = () => {
     actions.useJoker(myTeam.id, currentQuestion.id, "aide");
   };
 
-  // If user doesn't have a team yet, show team creation
+  // If no team selected, show team selection
   if (!myTeam) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 bg-card border-arena-border">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gold mb-2">ARENA</h1>
-            <p className="text-muted-foreground">Créez votre équipe pour rejoindre la partie</p>
+            <p className="text-muted-foreground">
+              {showCreateTeam ? "Créer une nouvelle équipe" : "Sélectionnez votre équipe"}
+            </p>
           </div>
           
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Nom de votre équipe
-              </label>
-              <Input
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder="Les Champions"
-                className="bg-muted border-arena-border"
-                onKeyDown={(e) => e.key === "Enter" && handleCreateTeam()}
-              />
+          {!showCreateTeam ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Votre équipe
+                </label>
+                <Select onValueChange={handleSelectTeam}>
+                  <SelectTrigger className="w-full bg-muted border-arena-border">
+                    <SelectValue placeholder="Choisir une équipe..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowCreateTeam(true)}
+              >
+                Mon équipe n'est pas dans la liste
+              </Button>
             </div>
-            <Button
-              className="w-full"
-              onClick={handleCreateTeam}
-              disabled={!teamName.trim()}
-            >
-              Créer mon équipe
-            </Button>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Nom de la nouvelle équipe
+                </label>
+                <Input
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="Les Champions"
+                  className="bg-muted border-arena-border"
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateNewTeam()}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowCreateTeam(false)}
+                >
+                  Retour
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleCreateNewTeam}
+                  disabled={!newTeamName.trim()}
+                >
+                  Créer
+                </Button>
+              </div>
+            </div>
+          )}
           
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
-              Chaque joueur doit créer sa propre équipe
+              Sélectionnez votre équipe pour rejoindre la partie
             </p>
           </div>
         </Card>

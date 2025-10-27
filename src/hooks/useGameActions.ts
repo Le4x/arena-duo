@@ -5,7 +5,7 @@ import { teamNameSchema, roundTitleSchema, questionSchema, answerSchema, setting
 export const useGameActions = (sessionId: string | undefined) => {
   const { toast } = useToast();
 
-  const addTeam = async (name: string, userId?: string) => {
+  const addTeam = async (name: string, userId: string | null = null) => {
     if (!sessionId) return;
     
     // Validate team name
